@@ -422,7 +422,7 @@ function verifyCall(VerifyContext vc, CallInsn insn) returns err:Internal? {
 
 function verifyListConstruct(VerifyContext vc, ListConstructInsn insn) returns Error? {
     t:SemType ty = insn.result.semType;
-    if !vc.isSubtype(ty, t:LIST_RW) {
+    if !vc.isSubtype(ty, t:createListRw(vc.typeContext())) {
         return vc.invalidErr("inherent type of list construct is not a mutable list", insn.pos);
     }
     t:ListAtomicType? lat = t:listAtomicTypeRw(vc.typeContext(), ty);
@@ -440,7 +440,7 @@ function verifyListConstruct(VerifyContext vc, ListConstructInsn insn) returns E
 
 function verifyMappingConstruct(VerifyContext vc, MappingConstructInsn insn) returns Error? {
     t:SemType ty = insn.result.semType;
-    if !vc.isSubtype(ty, t:MAPPING_RW) {
+    if !vc.isSubtype(ty, t:createMappingRw(vc.typeContext())) {
         return vc.invalidErr("inherent type of mapping construct is not a mutable mapping", insn.pos);
     }
     t:MappingAtomicType? mat = t:mappingAtomicTypeRw(vc.typeContext(), ty);

@@ -871,9 +871,9 @@ function codeGenListConstructor(ExprContext cx, bir:BasicBlock bb, t:SemType? ex
 }
 
 function selectListInherentType(ExprContext cx, t:SemType expectedType, s:ListConstructorExpr expr) returns [t:SemType, t:ListAtomicType]|ResolveTypeError {
-    // SUBSET always have contextually expected type for list constructor
-    t:SemType expectedListType = t:intersect(expectedType, t:LIST_RW);
     t:Context tc = cx.mod.tc;
+    // SUBSET always have contextually expected type for list constructor
+    t:SemType expectedListType = t:intersect(expectedType, t:createListRw(tc));
     if t:isEmpty(tc, expectedListType) {
         // don't think this can happen 
         return cx.semanticErr("list not allowed in this context", s:range(expr));
@@ -946,8 +946,8 @@ function codeGenMappingConstructor(ExprContext cx, bir:BasicBlock bb, t:SemType?
 }
 
 function selectMappingInherentType(ExprContext cx, t:SemType expectedType, s:MappingConstructorExpr expr) returns [t:SemType, t:MappingAtomicType]|ResolveTypeError {
-    t:SemType expectedMappingType = t:intersect(expectedType, t:MAPPING_RW);
     t:Context tc = cx.mod.tc;
+    t:SemType expectedMappingType = t:intersect(expectedType, t:createMappingRw(tc));
     if t:isEmpty(tc, expectedMappingType) {
         // XXX can this happen?
         return cx.semanticErr("mapping not allowed in this context", s:range(expr));
