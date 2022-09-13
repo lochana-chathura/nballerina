@@ -41,12 +41,13 @@ function finishBinaryTypeDesc(Tokenizer tok, BinaryTypeOp op, TypeDesc lhs, Posi
 }
 
 function parseUnaryTypeDesc(Tokenizer tok) returns TypeDesc|err:Syntax {
-    if tok.current() == "!" {
+    Token? currentToken = tok.current();
+    if currentToken == "!" || currentToken == "&" {
         Position startPos = tok.currentStartPos();
         check tok.advance();
         TypeDesc td = check parseUnaryTypeDesc(tok);
         Position endPos = tok.previousEndPos();
-        UnaryTypeDesc unary = { startPos, endPos, op: "!", opPos: startPos, td };
+        UnaryTypeDesc unary = { startPos, endPos, op: currentToken, opPos: startPos, td };
         return unary;
     }
     return parsePostfixTypeDesc(tok);

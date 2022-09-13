@@ -3,16 +3,16 @@ type A record {|
     string y;
 |};
 
-// @type B[XorY] = IorS
+// @type B[XorY] = IorSCell
 // @type B[other] = NEVER
 type B record {|
     string x;
     int y;
 |};
 
-// @type C[other] = BOOLEAN
-// @type C[XorY] = IorS
-// @type C[XorYorOther] = IorSOrB
+// @type C[other] = BooleanCell
+// @type C[XorY] = IorSCell
+// @type C[XorYorOther] = IorSOrBCell
 type C record {|
     string x;
     int y;
@@ -20,26 +20,25 @@ type C record {|
     boolean...;
 |};
 
-type IorS int|string;
-type IorSOrB IorS|boolean;
-type IorSorF IorS|float;
+type IorSCell &int|&string;
+type IorSOrBCell IorSCell|&boolean;
 
 const x = "x";
 const z = "z";
 const other = "other";
 type XorY "x"|"y";
-type NEVER never;
-type BOOLEAN boolean;
-type FLOAT float;
+type NEVER &never;
+type BooleanCell &boolean;
+type FloatCell &float;
 
 type XorYorOther XorY|other;
 
-// @type AorB[x] = IorS
-// @type AorB[XorY] = IorS
+// @type AorB[x] = IorSCell
+// @type AorB[XorY] = IorSCell
 type AorB A|B;
 
-// @type AorBorC[x] = IorS
-// @type AorBorC[z] = FLOAT
-// @type AorBorC[other] = BOOLEAN
-// @type AorBorC[XorYorOther] = IorSOrB
+// @type AorBorC[x] = IorSCell
+// @type AorBorC[z] = FloatCell
+// @type AorBorC[other] = BooleanCell
+// @type AorBorC[XorYorOther] = IorSOrBCell
 type AorBorC AorB|C;

@@ -480,7 +480,7 @@ public type BinaryTypeDesc record {|
     TypeDesc[] tds;
 |};
 
-public type UnaryTypeOp "!"|"("|"?";
+public type UnaryTypeOp "!"|"("|"?"|"&";
 
 public type UnaryTypeDesc record {|
     *PositionFields;

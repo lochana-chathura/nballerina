@@ -305,12 +305,14 @@ function resolveTypeDesc(ModuleSymbols mod, s:ModuleLevelDefn modDefn, int depth
         var  [ty, _] =  check resolveConstExpr(mod, modDefn, td.valueExpr, ());
         return ty;
     }
-    if td is s:UnaryTypeDesc && td.op != "!" {
+    if td is s:UnaryTypeDesc {
         if td.op == "?" {
             t:SemType ty = check resolveTypeDesc(mod, modDefn, depth, td.td);
             return t:union(ty, t:NIL);
         }
-        return resolveTypeDesc(mod, modDefn, depth + 1, td.td);
+        if td.op == "(" {
+            return resolveTypeDesc(mod, modDefn, depth + 1, td.td);
+        }
     }
     if !mod.allowAllTypes {
         return err:unimplemented("unimplemented type descriptor", s:locationInDefn(modDefn, s:range(td)));
@@ -338,9 +340,15 @@ function resolveTypeDesc(ModuleSymbols mod, s:ModuleLevelDefn modDefn, int depth
     }
     // JBUG #33722 work around incorrect type narrowing
     s:TypeDesc td2 = td;
-    if td2 is s:UnaryTypeDesc && td2.op == "!" {
-        t:SemType ty = check resolveTypeDesc(mod, modDefn, depth, td2.td);
-        return t:complement(ty);
+    if td2 is s:UnaryTypeDesc {
+        if td2.op == "!" {
+            t:SemType ty = check resolveTypeDesc(mod, modDefn, depth, td2.td);
+            return t:complement(ty);
+        }
+        if td2.op == "&" {
+            t:SemType ty = check resolveTypeDesc(mod, modDefn, depth, td2.td);
+            return t:cellContaining(env, ty, t:CELL_MUT_LIMITED);
+        }
     }
     if td is s:XmlSequenceTypeDesc {
         t:SemType t = check resolveTypeDesc(mod, modDefn, depth, td.constituent);
