@@ -31,8 +31,11 @@ public class MappingDefinition {
         }
     }
 
-    public function define(Env env, Field[] fields, SemType rest) returns SemType {
+    public function define(Env env, Field[] fields, SemType restType) returns SemType {
         var [names, types] = splitFields(fields);
+        // Coverting all member types into mutable cells
+        types = from SemType t in types select cellContaining(env, t, CELL_MUT_LIMITED);
+        SemType rest = cellContaining(env, restType, CELL_MUT_LIMITED);
         MappingAtomicType atomicType = {
             names: names.cloneReadOnly(),
             types: types.cloneReadOnly(),
@@ -366,7 +369,7 @@ function mappingAtomicMemberType(MappingAtomicType atomic, StringSubtype|true ke
     return memberType;
 }
 
-function mappingAtomicApplicableMemberTypes(MappingAtomicType atomic, StringSubtype|true key) returns SemType[] {
+function mappingAtomicApplicableMemberTypes(MappingAtomicType atomic, StringSubtype|true key) returns SemType[] { //
     SemType[] memberTypes = [];
     if key == true {
         memberTypes.push(...atomic.types);
