@@ -132,6 +132,42 @@ function cellNegListUnlimitedUnion(Context cx, Conjunction? negList) returns Sem
     return negUnion;
 }
 
+function intersectCellAtoms(Env env, CellAtomicType[] atoms) returns [SemType, CellAtomicType]? {
+    if atoms.length() == 0 {
+        return ();
+    }
+    CellAtomicType atom = atoms[0];
+    foreach int i in 1 ..< atoms.length() {
+        var tmpAtom = intersectCell(atom, atoms[i]);
+        atom = tmpAtom.cloneReadOnly();
+    }
+    SemType semType = createBasicSemType(BT_MAPPING, bddAtom(env.cellAtom(atom)));
+    return [semType, atom];
+}
+
+function intersectCell(CellAtomicType c1, CellAtomicType c2) returns CellAtomicType {
+    return { t:intersect(c1.t, c2.t), mut:<CellMutability>int:min(c1.mut, c2.mut) };
+}
+
+public function neverCell(Context cx, SemType t) returns boolean {
+    if t is BasicTypeBitSet {
+        return false;
+    } else {
+        CellAtomicType? cat = cellAtomicType(cx, t);
+        if cat != () { // easy case
+            return isNever(cat.t);
+        }
+        CellAlternative[] alts = cellAlternatives(cx, t);
+        foreach CellAlternative alt in alts {
+            CellAtomicType? pos = alt.pos;
+            if pos == () || !isNever(pos.t) {
+                return false;
+            } 
+        }
+        return true;
+    }
+}
+
 final BasicTypeOps cellOps = {
     union: bddSubtypeUnion,
     intersect: bddSubtypeIntersect,

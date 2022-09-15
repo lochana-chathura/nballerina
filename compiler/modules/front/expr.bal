@@ -919,6 +919,7 @@ function listAlternativeAllowsLength(t:ListAlternative alt, int len) returns boo
 function codeGenMappingConstructor(ExprContext cx, bir:BasicBlock bb, t:SemType? expected, s:MappingConstructorExpr expr) returns CodeGenError|ExprEffect {
     // SUBSET always have contextually expected type for mapping constructor
     var [resultType, mat] = check selectMappingInherentType(cx, <t:SemType>expected, expr); 
+    t:Context tc = cx.mod.tc;
     bir:BasicBlock nextBlock = bb;
     bir:Operand[] operands = [];
     string[] fieldNames = [];
@@ -931,15 +932,40 @@ function codeGenMappingConstructor(ExprContext cx, bir:BasicBlock bb, t:SemType?
         }
         fieldPos[name] = f.startPos;
         if mat.names.indexOf(name) == () {
-            if mat.rest == t:NEVER {
+            if t:neverCell(tc, mat.rest) {
                 return cx.semanticErr(`type does not allow field named ${name}`, pos=f.startPos);
             }
             else if f.isIdentifier && mat.names.length() > 0 {
                 return cx.semanticErr(`field name must be in double quotes since it is not an individual field in the type`, pos=f.startPos);
             }
         }
+        t:SemType mappingCellMember = t:mappingAtomicTypeMemberAt(mat, name);
+        t:CellAtomicType? cat = t:cellAtomicType(tc, mappingCellMember);
+        t:SemType requiredType;
+        ExprEffect? effect = ();
+        if cat != () { // easy case
+            requiredType = cat.t;
+            effect = check codeGenExprForType(cx, nextBlock, requiredType, f.value, "incorrect type for list member");
+        } else {
+            t:CellAtomicType?[] posAlts = from t:CellAlternative alt in t:cellAlternatives(tc, mappingCellMember) select alt.pos;
+            foreach t:CellAtomicType? pos in posAlts {
+                if pos == () {
+                    requiredType = t:TOP; 
+                } else {
+                    requiredType = pos.t;
+                }
+                ExprEffect tmpEffect = check codeGenExpr(cx, bb, requiredType, expr);
+                if operandHasType(cx.mod.tc, tmpEffect.result, requiredType) {
+                    effect = tmpEffect;
+                    break;
+                }
+            }
+        }
+        if effect == () {
+            return cx.semanticErr("incorrect type for list member", s:range(expr));
+        }
         bir:Operand operand;
-        { result: operand, block: nextBlock } = check codeGenExprForType(cx, nextBlock, t:mappingAtomicTypeMemberAt(mat, name), f.value, "incorrect type for list member");
+        { result: operand, block: nextBlock } = effect;
         operands.push(operand);
         fieldNames.push(name);
     }

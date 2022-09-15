@@ -97,6 +97,15 @@ public isolated class Env {
         }
     }
 
+    isolated function cellAtomType(Atom atom) returns CellAtomicType {
+        if atom is RecAtom {
+            panic error("cell cannot be a RecAtom");
+        }
+        else {
+            return <CellAtomicType>atom.atomicType;
+        }
+    }
+
     isolated function recListAtom() returns RecAtom {
         lock {
             int result = self.recListAtoms.length();
@@ -390,6 +399,7 @@ public final BasicTypeBitSet ERROR = basicType(BT_ERROR);
 public final BasicTypeBitSet LIST = basicType(BT_LIST);
 public final BasicTypeBitSet MAPPING = basicType(BT_MAPPING);
 public final BasicTypeBitSet TABLE = basicType(BT_TABLE);
+public final BasicTypeBitSet CELL = basicType(BT_CELL);
 
 // matches all functions
 public final BasicTypeBitSet FUNCTION = basicType(BT_FUNCTION);
@@ -1130,7 +1140,7 @@ public function listAlternatives(Context cx, SemType t) returns ListAlternative[
     }
 }
 
-final MappingAtomicType MAPPING_ATOMIC_TOP = { names: [], types: [], rest:TOP };
+final MappingAtomicType MAPPING_ATOMIC_TOP = { names: [], types: [], rest:TOP }; // TODO: fix
 
 public function mappingAtomicType(Context cx, SemType t) returns MappingAtomicType? {
     if t is BasicTypeBitSet {
@@ -1232,6 +1242,73 @@ public function mappingAlternatives(Context cx, SemType t) returns MappingAltern
                     semType: intersection[0],
                     pos: intersection[1],
                     neg: from var atom in neg select cx.mappingAtomType(atom)
+                });
+            }
+        }
+        return alts;
+    }
+}
+
+final CellAtomicType CELL_ATOMIC_TOP = { t: TOP, mut: CELL_MUT_LIMITED };
+
+public function cellAtomicType(Context cx, SemType t) returns CellAtomicType? {
+    if t is BasicTypeBitSet {
+        return t == CELL ? CELL_ATOMIC_TOP : ();
+    }
+    else {
+        Env env = cx.env;
+        if !isSubtypeSimple(t, CELL) {
+            return ();
+        }
+        return bddCellAtomicType(env, <Bdd>getComplexSubtypeData(t, BT_CELL), CELL_ATOMIC_TOP);
+    }
+}
+
+function bddCellAtomicType(Env env, Bdd bdd, CellAtomicType top) returns CellAtomicType? {
+    if bdd is boolean {
+        if bdd {
+            return top;
+        }
+    }
+    else if bdd.left == true && bdd.middle == false && bdd.right == false {
+        return env.cellAtomType(bdd.atom);
+    }
+    return ();
+}
+
+public type CellAlternative record {|
+    SemType semType;
+    CellAtomicType? pos;
+    CellAtomicType[] neg;
+|};
+
+public function cellAlternatives(Context cx, SemType t) returns CellAlternative[] {
+    if t is BasicTypeBitSet {
+        if (t & CELL) == 0 {
+            return [];
+        }
+        else {
+            return [
+                {
+                    semType: CELL,
+                    pos: (),
+                    neg: []
+                }
+            ];
+        }
+    }
+    else {
+        BddPath[] paths = [];
+        bddPaths(<Bdd>getComplexSubtypeData(t, BT_CELL), paths, {});
+        /// JBUG (33709) runtime error on construct1-v.bal if done as from/select
+        CellAlternative[] alts = [];
+        foreach var {pos, neg} in paths {
+            var intersection = intersectCellAtoms(cx.env, from var atom in pos select cx.cellAtomType(atom));
+            if intersection !is () {
+                alts.push({
+                    semType: intersection[0],
+                    pos: intersection[1],
+                    neg: from var atom in neg select cx.cellAtomType(atom)
                 });
             }
         }

@@ -94,7 +94,7 @@ function mappingFormulaIsEmpty(Context cx, Conjunction? posList, Conjunction? ne
             names: [],
             // This isn't right for the readonly case.
             // bddFixReadOnly avoids this
-            rest: TOP
+            rest: TOP // TODO: fix
         };
     }
     else {
@@ -141,12 +141,12 @@ function mappingInhabited(Context cx, TempMappingSubtype pos, Conjunction? negLi
             // so we can move on to the next one
 
             // Deal the easy case of two closed records fast.
-            if isNever(pos.rest) && isNever(neg.rest) {
+            if neverCell(cx, pos.rest) && neverCell(cx, neg.rest) {
                 return mappingInhabited(cx, pos, negList.next);
             }
             pairing = new (pos, neg);
             foreach var {type1: posType, type2: negType} in pairing {
-                if isNever(posType) || isNever(negType) {
+                if neverCell(cx, posType) || neverCell(cx, negType) {
                     return mappingInhabited(cx, pos, negList.next);
                 }
             }
@@ -362,14 +362,14 @@ function bddMappingMemberType(Context cx, Bdd b, StringSubtype|true key, SemType
 }
 
 function mappingAtomicMemberType(MappingAtomicType atomic, StringSubtype|true key) returns SemType {
-    SemType memberType = NEVER;
+    SemType memberType = NEVER; // TODO
     foreach SemType ty in mappingAtomicApplicableMemberTypes(atomic, key) {
         memberType = union(memberType, ty);
     }
     return memberType;
 }
 
-function mappingAtomicApplicableMemberTypes(MappingAtomicType atomic, StringSubtype|true key) returns SemType[] { //
+function mappingAtomicApplicableMemberTypes(MappingAtomicType atomic, StringSubtype|true key) returns SemType[] {
     SemType[] memberTypes = [];
     if key == true {
         memberTypes.push(...atomic.types);
