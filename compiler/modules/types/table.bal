@@ -1,7 +1,7 @@
 // Implementation specific to basic type table.
 
-public function tableContaining(Env env, SemType mappingType) returns SemType {
-    SemType listType = defineListTypeWrapped(new, env, rest = mappingType);
+public function tableContaining(Env env, SemType mappingType, CellMutability mut = CELL_MUT_LIMITED) returns SemType {
+    SemType listType = defineListTypeWrapped(new, env, rest = mappingType, mut = mut);
     Bdd bdd = <Bdd>subtypeData(listType, BT_LIST);
     return createBasicSemType(BT_TABLE, bdd);
 }

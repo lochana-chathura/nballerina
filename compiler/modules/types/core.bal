@@ -50,6 +50,11 @@ public isolated class Env {
         _ = self.mappingAtom(MAPPING_ATOMIC_TOP);
         _ = self.cellAtom(CELL_ATOMIC_MAPPING_TOP);
         _ = self.listAtom(LIST_ATOMIC_MAPPING_TOP);
+        // We are reserving the next two indexes of atomTable to represent typeAtoms related to mapping top readonly type.
+        // This is to avoid passing down env argument when doing errorSubtypeComplement operations.
+        // Please refer to the errorSubtypeComplement() in error.bal
+        _ = self.cellAtom(CELL_ATOMIC_TOP_RO);
+        _ = self.mappingAtom(MAPPING_ATOMIC_TOP_RO);
     }
 
     // Tests whether the Env is ready for use.
@@ -237,6 +242,10 @@ public class Context {
     SemType? anydataMemo = ();
     SemType? jsonMemo = ();
     SemType? readOnlyMemo = ();
+
+    SemType? readOnlyMappingMemo = ();
+    SemType? readOnlyListMemo = ();
+    SemType? readOnlyTableMemo = ();
 
     MappingAtomicType? mappingAtomicTopMemo = ();
     ListAtomicType? listAtomicTopMemo = ();
@@ -1247,8 +1256,10 @@ public function isNeverInner(CellSemType t) returns boolean {
 final CellAtomicType CELL_ATOMIC_TOP = { ty: TOP, mut: CELL_MUT_LIMITED }; // TODO: Revisit with match patterns
 final CellAtomicType CELL_ATOMIC_BOTTOM = { ty: NEVER, mut: CELL_MUT_LIMITED };
 final CellAtomicType CELL_ATOMIC_MAPPING_TOP = { ty: MAPPING_SEMTYPE_TOP, mut: CELL_MUT_LIMITED };
+final CellAtomicType CELL_ATOMIC_TOP_RO = { ty: TOP, mut: CELL_MUT_NONE };
 
 final MappingAtomicType MAPPING_ATOMIC_TOP = { names: [], types: [], rest: CELL_SEMTYPE_TOP };
+final MappingAtomicType MAPPING_ATOMIC_TOP_RO = { names: [], types: [], rest: CELL_SEMTYPE_TOP_RO };
 final ListAtomicType LIST_ATOMIC_MAPPING_TOP = { members: {initial: [], fixedLength: 0}, rest: CELL_SEMTYPE_MAPPING_LIST_TOP };
 
 final Atom CELL_ATOM_TOP = { index: 0, atomicType: CELL_ATOMIC_TOP };
@@ -1256,11 +1267,15 @@ final Atom CELL_ATOM_BOTTOM = { index: 1, atomicType: CELL_ATOMIC_BOTTOM };
 final Atom MAPPING_ATOM_TOP = { index: 2, atomicType: MAPPING_ATOMIC_TOP };
 final Atom CELL_ATOM_MAPPING_TOP = { index: 3, atomicType: CELL_ATOMIC_MAPPING_TOP };
 final Atom LIST_ATOM_MAPPING_TOP = { index: 4, atomicType: LIST_ATOMIC_MAPPING_TOP };
+final Atom CELL_ATOM_TOP_RO = { index: 5, atomicType: CELL_ATOMIC_TOP_RO };
+final Atom MAPPING_ATOM_TOP_RO = { index: 6, atomicType: MAPPING_ATOMIC_TOP_RO };
 
 final BddNode MAPPING_ARRAY_TOP_BDD = bddAtom(LIST_ATOM_MAPPING_TOP);
+final BddNode MAPPING_TOP_RO_BDD = bddAtom(MAPPING_ATOM_TOP_RO);
 
 final SemType MAPPING_SEMTYPE_TOP = basicSubtype(BT_MAPPING, bddAtom(MAPPING_ATOM_TOP));
 final CellSemType CELL_SEMTYPE_TOP = <CellSemType>basicSubtype(BT_CELL, bddAtom(CELL_ATOM_TOP));
+final CellSemType CELL_SEMTYPE_TOP_RO = <CellSemType>basicSubtype(BT_CELL, bddAtom(CELL_ATOM_TOP_RO));
 final CellSemType CELL_SEMTYPE_MAPPING_LIST_TOP = <CellSemType>basicSubtype(BT_CELL, bddAtom(CELL_ATOM_MAPPING_TOP));
 
 public function cellAtomicType(SemType t) returns CellAtomicType? {
@@ -1552,9 +1567,45 @@ public function createReadOnly(Context context) returns SemType {
     if memo != () {
         return memo;
     }
-    SemType ro = union(basicTypeUnion(BT_INHERENTLY_IMMUTABLE), XML_RO);
+    SemType mappingRo = basicSubtype(BT_MAPPING, MAPPING_TOP_RO_BDD);
+    SemType listRo = createListRo(context);
+    SemType tableRo = createTableRo(context);
+    SemType ro = union(union(union(union(basicTypeUnion(BT_INHERENTLY_IMMUTABLE), XML_RO), mappingRo), listRo), tableRo);
     context.readOnlyMemo = ro;
     return ro;
+}
+
+public function createMappingRo(Context context) returns SemType {
+    SemType? memo = context.readOnlyMappingMemo;
+    Env env = context.env;
+    if memo != () {
+        return memo;
+    }
+    SemType mappingRo = defineMappingTypeWrapped(new, env, [], TOP, mut = CELL_MUT_NONE);
+    context.readOnlyMappingMemo = mappingRo;
+    return mappingRo;
+}
+
+public function createListRo(Context context) returns SemType {
+    SemType? memo = context.readOnlyListMemo;
+    Env env = context.env;
+    if memo != () {
+        return memo;
+    }
+    SemType listRo = defineListTypeWrapped(new, env, rest = TOP, mut = CELL_MUT_NONE);
+    context.readOnlyListMemo = listRo;
+    return listRo;
+}
+
+public function createTableRo(Context context) returns SemType {
+    SemType? memo = context.readOnlyTableMemo;
+    Env env = context.env;
+    if memo != () {
+        return memo;
+    }
+    SemType tableRo = tableContaining(env, BT_MAPPING, CELL_MUT_NONE);
+    context.readOnlyTableMemo = tableRo;
+    return tableRo;
 }
 
 public function createJson(Context context) returns SemType {

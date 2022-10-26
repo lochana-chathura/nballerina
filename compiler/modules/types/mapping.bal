@@ -64,9 +64,9 @@ public class MappingDefinition {
     } 
 }
 
-public function defineMappingTypeWrapped(MappingDefinition md, Env env, Field[] fields, SemType rest) returns SemType {
-    CellField[] cellFields = from Field f in fields select [f[0], cellContaining(env, f[1])];
-    CellSemType restCell = cellContaining(env, rest);
+public function defineMappingTypeWrapped(MappingDefinition md, Env env, Field[] fields, SemType rest, CellMutability mut = CELL_MUT_LIMITED) returns SemType {
+    CellField[] cellFields = from Field f in fields select [f[0], cellContaining(env, f[1], mut)];
+    CellSemType restCell = cellContaining(env, rest, mut);
     return md.define(env, cellFields, restCell);
 }
 
