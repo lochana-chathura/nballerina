@@ -125,20 +125,32 @@ function andIfPositive(Atom atom, Conjunction? next) returns Conjunction? {
     return { atom, next };
 }
 
-function bddSubtypeUnion(SubtypeData t1, SubtypeData t2) returns SubtypeData {
-    return bddUnion(<Bdd>t1, <Bdd>t2);
+function bddSubtypeUnion(ProperSubtypeData t1, ProperSubtypeData t2) returns SubtypeData {
+    return bddUnion(<BddNode>t1, <BddNode>t2);
 }
 
-function bddSubtypeIntersect(SubtypeData t1, SubtypeData t2) returns SubtypeData {
-    return bddIntersect(<Bdd>t1, <Bdd>t2);
+function bddSubtypeIntersect(ProperSubtypeData t1, ProperSubtypeData t2) returns SubtypeData {
+    return bddIntersect(<BddNode>t1, <BddNode>t2);
 }
 
-function bddSubtypeDiff(SubtypeData t1, SubtypeData t2) returns SubtypeData {
-    return bddDiff(<Bdd>t1, <Bdd>t2);
+function bddSubtypeDiff(ProperSubtypeData t1, ProperSubtypeData t2) returns SubtypeData {
+    return bddDiff(<BddNode>t1, <BddNode>t2);
 }
 
-function bddSubtypeComplement(SubtypeData t) returns SubtypeData {
-    return bddComplement(<Bdd>t);
+function bddSubtypeComplement(ProperSubtypeData t) returns SubtypeData {
+    return bddNodeComplement(<BddNode>t);
+}
+
+function subtypeDiff(BasicTypeCode code, ProperSubtypeData d1, ProperSubtypeData d2) returns SubtypeData {
+    SubtypeData d2Cmp = ops[code].complement(d2);
+    if d2Cmp is boolean {
+        if d2Cmp is true {
+            return d1;
+        } else {
+            return false;
+        }
+    }
+    return ops[code].intersect(d1, d2Cmp);
 }
 
 // Represents path from root to leaf (ending with true)
