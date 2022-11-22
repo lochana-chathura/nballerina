@@ -151,7 +151,7 @@ function cellSubtypeDataEnsureProper(SubtypeData subtypeData) returns ProperSubt
         return subtypeData;
     }
     Atom atom;
-    if subtypeData is true {
+    if subtypeData {
         atom = CELL_ATOM_TOP;
     } else {
         atom = CELL_ATOM_BOTTOM;

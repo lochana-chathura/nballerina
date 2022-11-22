@@ -41,12 +41,11 @@ public isolated class Env {
     public isolated function init() {
         // We are reserving the first two indexes of atomTable to represent cell top and bottom typeAtoms. 
         // This is to avoid passing down env argument when doing cell type operations.
-        // Please refer to the cellFixSubtypeData() in cell.bal
+        // Please refer to the cellSubtypeDataEnsureProper() in cell.bal
         _ = self.cellAtom(CELL_ATOMIC_TOP);
         _ = self.cellAtom(CELL_ATOMIC_BOTTOM);
         // We are reserving the next two indexes of atomTable to represent typeAtoms related to mapping top list type.
-        // This is to avoid passing down env argument when doing tableSubtypeComplement operations.
-        // Please refer to the tableBddComplement() in bdd.bal
+        // This is to avoid passing down env argument when doing tableSubtypeComplement operation.
         _ = self.cellAtom(CELL_ATOMIC_MAPPING_TOP);
         _ = self.listAtom(LIST_ATOMIC_MAPPING_TOP);
         // We are reserving the next four indexes of atomTable to represent typeAtoms related to readonly type.
@@ -768,6 +767,18 @@ public function diff(SemType t1, SemType t2) returns SemType {
         return all;
     }
     return createComplexSemType(all, subtypes);        
+}
+
+function subtypeDiff(BasicTypeCode code, ProperSubtypeData d1, ProperSubtypeData d2) returns SubtypeData {
+    SubtypeData d2Complement = ops[code].complement(d2);
+    if d2Complement is boolean {
+        if d2Complement {
+            return d1;
+        } else {
+            return false;
+        }
+    }
+    return ops[code].intersect(d1, d2Complement);
 }
 
 public function complement(SemType t) returns SemType {

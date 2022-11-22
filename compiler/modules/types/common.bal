@@ -141,18 +141,6 @@ function bddSubtypeComplement(ProperSubtypeData t) returns SubtypeData {
     return bddNodeComplement(<BddNode>t);
 }
 
-function subtypeDiff(BasicTypeCode code, ProperSubtypeData d1, ProperSubtypeData d2) returns SubtypeData {
-    SubtypeData d2Cmp = ops[code].complement(d2);
-    if d2Cmp is boolean {
-        if d2Cmp is true {
-            return d1;
-        } else {
-            return false;
-        }
-    }
-    return ops[code].intersect(d1, d2Cmp);
-}
-
 // Represents path from root to leaf (ending with true)
 // bdd gets the Bdd for this path
 type BddPath record {|
