@@ -4,7 +4,7 @@ function exprBinaryAdd() returns Module {
     Context context = new;
     Builder builder = context.createBuilder();
     Module m = context.createModule();
-    FunctionDecl add = m.getIntrinsicDeclaration("sadd.with.overflow.i64");
+    FunctionDecl add = m.getIntrinsicDeclaration("sadd.with.overflow.i64.i64");
     FunctionDefn abort = m.addFunctionDefn("abort", {returnType: "void", paramTypes: []});
     FunctionDefn foo = m.addFunctionDefn("foo", {returnType: "i64", paramTypes: ["i64", "i64"]});
     BasicBlock initBlock = foo.appendBasicBlock();
@@ -26,7 +26,7 @@ function exprBinaryAdd() returns Module {
     }
     Value R8 = builder.extractValue(R7, 0);
     Value R9 = builder.extractValue(R7, 1);
-    Value R10 = builder.iBitwise("xor", R9, constInt("i1", 1));
+    Value R10 = builder.iBitwise("xor", R9, context.constInt("i1", 1));
 
     BasicBlock ifTrue = foo.appendBasicBlock();
     BasicBlock ifFalse = foo.appendBasicBlock();

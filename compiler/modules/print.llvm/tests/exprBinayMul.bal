@@ -3,7 +3,7 @@ import ballerina/test;
 function exprBinaryMul() returns Module {
     Context context = new;
     Module m = context.createModule();
-    FunctionDecl mul = m.getIntrinsicDeclaration("smul.with.overflow.i64");
+    FunctionDecl mul = m.getIntrinsicDeclaration("smul.with.overflow.i64.i64");
     Function abort = m.addFunctionDefn("abort", {returnType:"void", paramTypes:[]});
     FunctionDefn foo = m.addFunctionDefn("foo", {returnType: "i64", paramTypes: ["i64", "i64"]});
     BasicBlock initBlock = foo.appendBasicBlock();
@@ -26,7 +26,7 @@ function exprBinaryMul() returns Module {
     }
     Value R8 = builder.extractValue(R7, 0);
     Value R9 = builder.extractValue(R7, 1);
-    Value R10 = builder.iBitwise("xor", R9, constInt("i1", 1));
+    Value R10 = builder.iBitwise("xor", R9, context.constInt("i1", 1));
 
     BasicBlock ifTrue = foo.appendBasicBlock();
     BasicBlock ifFalse = foo.appendBasicBlock();
