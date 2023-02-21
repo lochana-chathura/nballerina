@@ -181,6 +181,10 @@ function shallowCopyStrings(string[] v) returns string[] {
     return from var x in v select x;
 }
 
+function shallowCopyBooleans(boolean[] v) returns boolean[] {
+    return from var x in v select x;
+}
+
 function notIsEmpty(Context cx, SubtypeData d) returns boolean {
     return false;
 }

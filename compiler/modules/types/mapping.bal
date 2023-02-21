@@ -4,14 +4,16 @@ public type Field record {|
     string name;
     SemType ty;
     boolean ro = false;
+    boolean opt = false;
 |};
 
-public type CellField [string, CellSemType];
+public type CellField [string, CellSemType, boolean]; // TODO: make this a record
 
 public type MappingAtomicType readonly & record {|
     // sorted
     string[] names;
     CellSemType[] types;
+    boolean[] opts;
     CellSemType rest;
 |};
 
@@ -29,7 +31,7 @@ public function mappingAtomicTypeMemberAt(MappingAtomicType mat, string k) retur
 }
 
 // This is mapping index 0 to be used by VAL_READONLY
-final MappingAtomicType MAPPING_ATOMIC_RO = { names: [], types: [], rest: CELL_SEMTYPE_INNER_RO };
+final MappingAtomicType MAPPING_ATOMIC_RO = { names: [], types: [], opts: [], rest: CELL_SEMTYPE_INNER_RO };
 
 public class MappingDefinition {
     *Definition;
@@ -49,10 +51,11 @@ public class MappingDefinition {
     }
 
     public function define(Env env, CellField[] fields, CellSemType rest) returns SemType {
-        var [names, types] = splitFields(fields);
+        var [names, types, opts] = splitFields(fields);
         MappingAtomicType atomicType = {
             names: names.cloneReadOnly(),
             types: types.cloneReadOnly(),
+            opts: opts.cloneReadOnly(),
             rest
         };
         Atom atom;
@@ -80,20 +83,23 @@ public class MappingDefinition {
 }
 
 public function defineMappingTypeWrapped(MappingDefinition md, Env env, Field[] fields, SemType rest, CellMutability mut = CELL_MUT_LIMITED) returns SemType {
-    CellField[] cellFields = from var { name, ty, ro } in fields select [name, cellContaining(env, ty, ro ? CELL_MUT_NONE : mut)];
+    // TODO: refactor immediate line
+    CellField[] cellFields = from var { name, ty, ro, opt } in fields select [name, cellContaining(env, opt ? union(ty, UNDEF): ty, ro ? CELL_MUT_NONE : mut), opt];
     CellSemType restCell = cellContaining(env, union(rest, UNDEF), rest == NEVER ? CELL_MUT_NONE : mut);
     return md.define(env, cellFields, restCell);
 }
 
-function splitFields(CellField[] fields) returns [string[], CellSemType[]] {
+function splitFields(CellField[] fields) returns [string[], CellSemType[], boolean[]] {
     CellField[] sortedFields = fields.sort("ascending", fieldName);
     string[] names = [];
     CellSemType[] types = [];
-    foreach var [s, t] in sortedFields {
+    boolean[] opts = [];
+    foreach var [s, t, opt] in sortedFields {
         names.push(s);
         types.push(t);
+        opts.push(opt);
     }
-    return [names, types];
+    return [names, types, opts];
 }
 
 isolated function fieldName(CellField f) returns string {
@@ -155,43 +161,34 @@ function mappingInhabited(Context cx, TempMappingSubtype pos, Conjunction? negLi
     else {
         MappingAtomicType neg = cx.mappingAtomType(negList.atom);
 
-        MappingPairing pairing;
-
-        if pos.names != neg.names {
+        MappingPairing pairing = new (pos, neg);
+        foreach var {type1: posType, type2: negType, opt1, opt2} in pairing {
             // If this negative type has required fields that the positive one does not allow
             // or vice-versa, then this negative type has no effect,
             // so we can move on to the next one
-
-            // Deal the easy case of two closed records fast.
-            if  cellInner(pos.rest) == UNDEF &&  cellInner(neg.rest) == UNDEF {
+            if (!opt1 && cellInner(negType) == UNDEF) || (!opt2 && cellInner(posType) == UNDEF) {
                 return mappingInhabited(cx, pos, negList.next);
             }
-            pairing = new (pos, neg);
-            foreach var {type1: posType, type2: negType} in pairing {
-                if  cellInner(posType) == UNDEF ||  cellInner(negType) == UNDEF {
-                    return mappingInhabited(cx, pos, negList.next);
-                }
-            }
-            pairing.reset();
         }
-        else {
-            pairing = new (pos, neg);
-        }
+        pairing.reset();
 
         if !isEmpty(cx, diff(pos.rest, neg.rest)) {
             return mappingInhabited(cx, pos, negList.next);
         }
-        foreach var { index1, type1: posType, type2: negType } in pairing {
+        foreach var { name, index1, type1: posType, type2: negType } in pairing {
             CellSemType d = <CellSemType>diff(posType, negType);
-             if index1 is () {
-                // We cannot match the rest field of the positive with named field of a negative atom
-                return mappingInhabited(cx, pos, negList.next);
-            }
             if !isEmpty(cx, d) {
                 TempMappingSubtype mt;
-                CellSemType[] posTypes = shallowCopyCellTypes(pos.types);
-                posTypes[index1] = d;
-                mt = { types: posTypes, names: pos.names, rest: pos.rest };
+                if index1 == () {
+                    // the posType came from the rest type
+                    mt = insertRequiredField(pos, name, d);
+                }
+                else {
+                    CellSemType[] posTypes = shallowCopyCellTypes(pos.types);
+                    boolean[] posOpts = shallowCopyBooleans(pos.opts);
+                    posTypes[index1] = d;
+                    mt = { types: posTypes, names: pos.names, opts:posOpts, rest: pos.rest };
+                }
                 if mappingInhabited(cx, mt, negList.next) {
                     return true;
                 }
@@ -201,21 +198,24 @@ function mappingInhabited(Context cx, TempMappingSubtype pos, Conjunction? negLi
     }
 }
 
-function insertField(TempMappingSubtype m, string name, CellSemType t) returns TempMappingSubtype {
+function insertRequiredField(TempMappingSubtype m, string name, CellSemType t) returns TempMappingSubtype {
     string[] names = shallowCopyStrings(m.names);
     CellSemType[] types = shallowCopyCellTypes(m.types);
+    boolean[] opts = shallowCopyBooleans(m.opts);
     int i = names.length();
     while true {
         if i == 0 || name <= names[i - 1] {
             names[i] = name;
             types[i] = t;
+            opts[i] = false;
             break;
         }
         names[i] = names[i - 1];
         types[i] = types[i - 1];
+        opts[i] = opts[i - 1];
         i -= 1;
     }
-    return { names, types, rest: m.rest };
+    return { names, types, opts, rest: m.rest };
 }
 
 function intersectMappingAtoms(Env env, MappingAtomicType[] atoms) returns [SemType, MappingAtomicType]? {
@@ -238,28 +238,33 @@ type TempMappingSubtype record {|
     // sorted
     string[] names;
     CellSemType[] types;
+    boolean[] opts;
     CellSemType rest;
 |};
 
 function intersectMapping(Env env, TempMappingSubtype m1, TempMappingSubtype m2) returns TempMappingSubtype? {
     string[] names = [];
     CellSemType[] types = [];
-    foreach var { name, type1, type2 } in new MappingPairing(m1, m2) {
+    boolean[] opts = [];
+    foreach var { name, type1, type2, opt1, opt2 } in new MappingPairing(m1, m2) {
         names.push(name);
         CellSemType t = intersectMemberSemTypes(env, type1, type2);
         if cellInner(type1) == NEVER {
             return ();
         }
         types.push(t);
+        opts.push(opt1 && opt2);
     }
     CellSemType rest = intersectMemberSemTypes(env, m1.rest, m2.rest);
-    return { names, types, rest };
+    return { names, types, rest, opts };
 }
 
 type CellFieldPair record {|
     string name;
     CellSemType type1;
     CellSemType type2;
+    boolean opt1;
+    boolean opt2;
     int? index1 = ();
     int? index2 = ();
 |};
@@ -275,6 +280,8 @@ class MappingPairing {
     private final string[] names2;
     private final CellSemType[] types1;
     private final CellSemType[] types2;
+    private final boolean[] opts1;
+    private final boolean[] opts2;
     private final int len1;
     private final int len2;
     private int i1 = 0;
@@ -286,10 +293,12 @@ class MappingPairing {
         self.names1 = m1.names;
         self.len1 = self.names1.length();
         self.types1 = m1.types;
+        self.opts1 = m1.opts;
         self.rest1 = m1.rest;
         self.names2 = m2.names;
         self.len2 = self.names2.length();
         self.types2 = m2.types;
+        self.opts2 = m2.opts;
         self.rest2 = m2.rest;
     }
 
@@ -312,6 +321,8 @@ class MappingPairing {
                 name: self.curName2(),
                 type1: self.rest1,
                 type2: self.curType2(),
+                opt1: true,
+                opt2: self.curOpt2(),
                 index2: self.i2
             };
             self.i2 += 1;
@@ -321,6 +332,8 @@ class MappingPairing {
                 name: self.curName1(),
                 type1: self.curType1(),
                 type2: self.rest2,
+                opt1: self.curOpt1(),
+                opt2: true,
                 index1: self.i1
             };
             self.i1 += 1;
@@ -333,6 +346,8 @@ class MappingPairing {
                     name: name1,
                     type1: self.curType1(),
                     type2: self.rest2,
+                    opt1: self.curOpt1(),
+                    opt2: true,
                     index1: self.i1
                 };
                 self.i1 += 1;
@@ -342,6 +357,8 @@ class MappingPairing {
                     name: name2,
                     type1: self.rest1,
                     type2: self.curType2(),
+                    opt1: true,
+                    opt2: self.curOpt2(),
                     index2: self.i2
                 };
                 self.i2 += 1;
@@ -351,6 +368,8 @@ class MappingPairing {
                     name: name1,
                     type1: self.curType1(),
                     type2: self.curType2(),
+                    opt1: self.curOpt1(),
+                    opt2: self.curOpt2(),
                     index1: self.i1,
                     index2: self.i2
                 };
@@ -368,6 +387,10 @@ class MappingPairing {
     private function curName1() returns string => self.names1[self.i1];
 
     private function curName2() returns string => self.names2[self.i2];
+
+    private function curOpt1() returns boolean => self.opts1[self.i1];
+
+    private function curOpt2() returns boolean => self.opts2[self.i2];
 }
 
 function bddMappingMemberTypeInner(Context cx, Bdd b, StringSubtype|true key, SemType accum) returns SemType {

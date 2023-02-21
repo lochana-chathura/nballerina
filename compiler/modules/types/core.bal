@@ -1325,7 +1325,7 @@ final CellAtomicType CELL_ATOMIC_INNER_MAPPING = { ty: union(MAPPING, UNDEF), mu
 final CellAtomicType CELL_ATOMIC_INNER_MAPPING_RO = { ty: union(MAPPING_RO, UNDEF), mut: CELL_MUT_NONE };
 final CellAtomicType CELL_ATOMIC_INNER_RO = { ty: INNER_READONLY, mut: CELL_MUT_NONE };
 
-final MappingAtomicType MAPPING_ATOMIC_INNER = { names: [], types: [], rest: CELL_SEMTYPE_INNER };
+final MappingAtomicType MAPPING_ATOMIC_INNER = { names: [], types: [], opts: [], rest: CELL_SEMTYPE_INNER };
 final ListAtomicType LIST_ATOMIC_INNER = { members: { initial: [], fixedLength: 0 }, rest: CELL_SEMTYPE_INNER };
 final ListAtomicType LIST_ATOMIC_MAPPING = { members: {initial: [], fixedLength: 0 }, rest: CELL_SEMTYPE_INNER_MAPPING };
 
