@@ -1318,6 +1318,10 @@ function cellContainingInnerVal(Env env, CellSemType t) returns CellSemType {
     return cellContaining(env, diff(cat.ty, UNDEF), cat.mut);
 }
 
+function cellContainsUndef(CellSemType t) returns boolean {
+    return containsUndef(cellInner(t));
+}
+
 final CellAtomicType CELL_ATOMIC_VAL = { ty: VAL, mut: CELL_MUT_LIMITED }; // TODO: Revisit with match patterns
 final CellAtomicType CELL_ATOMIC_INNER = { ty: INNER, mut: CELL_MUT_LIMITED };
 final CellAtomicType CELL_ATOMIC_NEVER = { ty: NEVER, mut: CELL_MUT_LIMITED };
